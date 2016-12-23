@@ -2,36 +2,9 @@ PowerDNS Ansible library
 ==========
 - [Introduction](#introduction)
 - [Usage](#usage)
-  - [Zones](#zones)
   - [Records](#records)
 
 # Usage
-
-## Zones
-Ensure zone is present
-
-```yaml
-- powerdns_zone:
-    name: zone01.internal.example.com
-    nameservers:
-    - ns-01.example.com
-    - ns-02.example.com
-    kind: master
-    state: present
-    pdns_host: powerdns.example.com
-    pdns_port: 8081
-    pdns_api_key: topsecret
-```
-
-Ensure zone is absent
-```yaml
-- powerdns_zone:
-    name: zone02.internal.example.com
-    state: absent
-    pdns_host: powerdns.example.com
-    pdns_port: 8081
-    pdns_api_key: topsecret
-```
 
 ## Records
 

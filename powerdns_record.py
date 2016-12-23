@@ -87,15 +87,19 @@ class PowerDNSError(Exception):
 
 class PowerDNSClient:
     def __init__(self, host, port, prot, api_key):
-        self.url = '{prot}://{host}:{port}'.format(prot=prot, host=host, port=port)
+        self.url = '{prot}://{host}:{port}/api/v1'.format(prot=prot, host=host, port=port)
         self.headers = {'X-API-Key': api_key,
                         'content-type': 'application/json',
                         'accept': 'application/json'
                         }
 
     def _handle_request(self, req):
-        if req.status_code in [200, 201]:
-            return json.loads(req.text)
+        """ According to: https://doc.powerdns.com/md/httpapi/api_spec/"""
+        if req.status_code in [200, 201, 204]:
+            if req.text:
+                return json.loads(req.text)
+            else:
+                return
         elif req.status_code == 404:
             error_message = 'Not found'
         else:
@@ -132,9 +136,10 @@ class PowerDNSClient:
         return dict()
 
     def _get_request_data(self, changetype, server, zone, name, rtype, content=None, disabled=None, ttl=None):
-        record_content = list()
-        record_content.append(dict(content=content, disabled=disabled, name=name, ttl=ttl, type=rtype))
-        record = dict(name=name, type=rtype, changetype=changetype, records=record_content)
+        """ Record format according to https://doc.powerdns.com/md/httpapi/README/"""
+        record_records = list()
+        record_records.append(dict(content=content, disabled=disabled))
+        record = dict(name=name, type=rtype, ttl=ttl, changetype=changetype, records=record_records)
         rrsets = list()
         rrsets.append(record)
         data = dict(rrsets=rrsets)
@@ -163,6 +168,10 @@ def ensure(module, pdns_client):
     ttl = module.params['ttl']
     zone_name = module.params['zone']
 
+    # Handle canonical zone name
+    if not zone_name.endswith("."):
+        zone_name = "{}.".format(zone_name)
+
     if zone_name not in name:
         name = '{name}.{zone}'.format(name=name, zone=zone_name)
     server = module.params['server']
@@ -176,10 +185,10 @@ def ensure(module, pdns_client):
                                                                            err=e.message))
 
     if not zone:
-        module.fail_json(msg='Zone not found: {name}'.format(zone=zone_name))
+        module.fail_json(msg='Zone not found: {zone}'.format(zone=zone_name))
 
     # Try to find the record by name and type
-    record = next((item for item in zone.get('records') if (item['name'] == name and item['type'] == rtype)), None)
+    record = next((item for item in zone.get('rrsets') if (item['name'] == name and item['type'] == rtype)), None)
 
     if state == 'present':
         # Create record if it does not exist
